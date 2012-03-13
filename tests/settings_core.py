@@ -23,3 +23,4 @@ LOGGING = {
     }
 }
 
+SECRET_KEY = "qwerty"

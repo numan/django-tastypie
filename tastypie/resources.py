@@ -1118,8 +1118,10 @@ class Resource(object):
         deserialized = self.alter_deserialized_detail_data(request, deserialized)
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
         self.is_valid(bundle, request)
-        self.authorized_to_add(bundle)
-        updated_bundle = self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
+
+        bundle = self.build_new_object(bundle, **kwargs)
+        self.authorized_to_add(bundle, **self.remove_api_resource_names(kwargs))
+        updated_bundle = self.obj_create(bundle, request=request)
         location = self.get_resource_uri(updated_bundle)
 
         if not self._meta.always_return_data:
@@ -1210,7 +1212,6 @@ class Resource(object):
         deserialized = self.alter_deserialized_detail_data(request, deserialized)
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
         self.is_valid(bundle, request)
-        self.authorized_to_change(bundle)
 
         try:
             updated_bundle = self.obj_update(bundle, request=request, **self.remove_api_resource_names(kwargs))
@@ -1254,11 +1255,18 @@ class Resource(object):
         If the resource is deleted, return ``HttpNoContent`` (204 No Content).
         If the resource did not exist, return ``Http404`` (404 Not Found).
         """
-        bundle = self.build_bundle(request=request)
+        try:
+            obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
+        except ObjectDoesNotExist:
+            return http.HttpNotFound()
+        except MultipleObjectsReturned:
+            return http.HttpMultipleChoices("More than one resource is found at this URI.")
+
+        bundle = self.build_bundle(obj=obj, request=request)
         self.authorized_to_delete(bundle)
 
         try:
-            self.obj_delete(request=request, **self.remove_api_resource_names(kwargs))
+            self.obj_delete(request=request, _obj=obj)
             return http.HttpNoContent()
         except NotFound:
             return http.HttpNotFound()
@@ -1327,6 +1335,7 @@ class Resource(object):
                     bundle = self.build_bundle(obj=obj, request=request)
                     bundle = self.full_dehydrate(bundle)
                     bundle = self.alter_detail_data_to_serialize(request, bundle)
+                    #authorization checking done by self.obj_update
                     self.update_in_place(request, bundle, data)
                 except (ObjectDoesNotExist, MultipleObjectsReturned):
                     # The object referenced by resource_uri doesn't exist,
@@ -1401,7 +1410,7 @@ class Resource(object):
         # function is cribbed from put_detail.
         self.alter_deserialized_detail_data(request, original_bundle.data)
         self.is_valid(original_bundle, request)
-        self.authorized_to_change(original_bundle)
+        #authorization checking done by self.obj_update
         return self.obj_update(original_bundle, request=request, pk=original_bundle.obj.pk)
 
     def get_schema(self, request, **kwargs):
@@ -1836,12 +1845,8 @@ class ModelResource(Resource):
         """
         A ORM-specific implementation of ``obj_create``.
         """
-        bundle.obj = self._meta.object_class()
-
-        for key, value in kwargs.items():
-            setattr(bundle.obj, key, value)
-
-        bundle = self.full_hydrate(bundle)
+        if getattr(bundle, "obj", None) is None:
+            bundle = self.build_new_object(bundle, **kwargs)
 
         # Save FKs just in case.
         self.save_related(bundle)
@@ -1853,6 +1858,19 @@ class ModelResource(Resource):
         m2m_bundle = self.hydrate_m2m(bundle)
         self.save_m2m(m2m_bundle)
         return bundle
+
+    def build_new_object(self, bundle, **kwargs):
+        """
+        Builds a new model object in preparation for saving
+        """
+        bundle.obj = self._meta.object_class()
+
+        for key, value in kwargs.items():
+            setattr(bundle.obj, key, value)
+
+        bundle = self.full_hydrate(bundle)
+        return bundle
+
 
     def obj_update(self, bundle, request=None, **kwargs):
         """
@@ -1884,6 +1902,9 @@ class ModelResource(Resource):
                 bundle.obj = self.obj_get(request, **lookup_kwargs)
             except ObjectDoesNotExist:
                 raise NotFound("A model instance matching the provided arguments could not be found.")
+
+
+        self.authorized_to_change(bundle)
 
         bundle = self.full_hydrate(bundle)
 
@@ -1922,14 +1943,13 @@ class ModelResource(Resource):
         the instance.
         """
         obj = kwargs.pop('_obj', None)
-
         if not hasattr(obj, 'delete'):
             try:
                 obj = self.obj_get(request, **kwargs)
             except ObjectDoesNotExist:
                 raise NotFound("A model instance matching the provided arguments could not be found.")
-
         obj.delete()
+
 
     def patch_list(self, request, **kwargs):
         """
