@@ -6,6 +6,21 @@ from tastypie.authorization import Authorization, ReadOnlyAuthorization, DjangoA
 from tastypie import fields
 from tastypie.resources import Resource, ModelResource
 
+class NoAuthorization(Authorization):
+    def to_read(self, bundle):
+        return False
+    def to_add(self, bundle):
+        return False
+    def to_change(self, bundle):
+        return False
+    def to_delete(self, bundle):
+        return False
+
+class NoAuthorizationNoteResource(ModelResource):
+    class Meta:
+        resource_name = 'notes'
+        queryset = Note.objects.filter()
+        authorization = Authorization()
 
 class NoRulesNoteResource(ModelResource):
     class Meta:
