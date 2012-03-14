@@ -684,6 +684,7 @@ class NoteResource(ModelResource):
         }
         ordering = ['title', 'slug', 'resource_uri']
         queryset = Note.objects.filter(is_active=True)
+        authorization = Authorization()
 
     def get_resource_uri(self, bundle_or_obj):
         return '/api/v1/notes/%s/' % bundle_or_obj.obj.id
@@ -709,6 +710,7 @@ class AlwaysDataNoteResource(NoteResource):
         resource_name = 'alwaysdatanote'
         queryset = Note.objects.filter(is_active=True)
         always_return_data = True
+        authorization = Authorization()
 
 
 class VeryCustomNoteResource(NoteResource):
@@ -762,6 +764,7 @@ class AlwaysUserNoteResource(NoteResource):
 class UserResource(ModelResource):
     class Meta:
         queryset = User.objects.all()
+        authorization = Authorization()
 
     def get_resource_uri(self, bundle_or_obj):
         return '/api/v1/users/%s/' % bundle_or_obj.obj.id
@@ -824,7 +827,7 @@ class SubjectResource(ModelResource):
         filtering = {
             'name': ALL,
         }
-
+        authorization = Authorization()
 
 class RelatedNoteResource(ModelResource):
     author = fields.ForeignKey(UserResource, 'author')
@@ -838,6 +841,7 @@ class RelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class AnotherSubjectResource(ModelResource):
@@ -864,6 +868,7 @@ class AnotherRelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class YetAnotherRelatedNoteResource(ModelResource):
@@ -878,6 +883,7 @@ class YetAnotherRelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class NullableRelatedNoteResource(AnotherRelatedNoteResource):

@@ -1120,7 +1120,7 @@ class Resource(object):
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
         self.is_valid(bundle, request)
 
-        bundle = self.build_new_object(bundle, **kwargs)
+        bundle = self.kwargs_hydrate(bundle, **kwargs)
         self.authorized_to_add(bundle, **self.remove_api_resource_names(kwargs))
         updated_bundle = self.obj_create(bundle, request=request)
         location = self.get_resource_uri(updated_bundle)
@@ -1846,8 +1846,9 @@ class ModelResource(Resource):
         """
         A ORM-specific implementation of ``obj_create``.
         """
-        if getattr(bundle, "obj", None) is None:
-            bundle = self.build_new_object(bundle, **kwargs)
+        bundle = self.kwargs_hydrate(bundle, **kwargs)
+
+        bundle = self.full_hydrate(bundle)
 
         # Save FKs just in case.
         self.save_related(bundle)
@@ -1860,16 +1861,16 @@ class ModelResource(Resource):
         self.save_m2m(m2m_bundle)
         return bundle
 
-    def build_new_object(self, bundle, **kwargs):
+    def kwargs_hydrate(self, bundle, **kwargs):
         """
         Builds a new model object in preparation for saving
         """
-        bundle.obj = self._meta.object_class()
+        if getattr(bundle, "obj", None) is None:
+            bundle.obj = self._meta.object_class()
 
         for key, value in kwargs.items():
             setattr(bundle.obj, key, value)
 
-        bundle = self.full_hydrate(bundle)
         return bundle
 
 
