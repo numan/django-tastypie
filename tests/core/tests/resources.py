@@ -32,6 +32,30 @@ try:
 except ImportError:
     import simplejson as json
 
+class NoteNoAuthorization(Authorization):
+    def to_read(self, bundle):
+        if bundle.obj and bundle.obj.title:
+            return False
+
+        return True
+
+    def to_add(self, bundle):
+        if bundle.obj and bundle.obj.title:
+            return False
+
+        return True
+
+    def to_change(self, bundle):
+        if bundle.obj and bundle.obj.title:
+            return False
+
+        return True
+
+    def to_delete(self, bundle):
+        if bundle.obj and bundle.obj.title:
+            return False
+
+        return True
 
 class CustomSerializer(Serializer):
     pass
@@ -750,6 +774,12 @@ class CustomPageNoteResource(NoteResource):
         paginator_class = CustomPaginator
         queryset = Note.objects.all()
 
+
+class NoAuthorizationNoteResource(NoteResource):
+    class Meta:
+        resource_name = 'noauthnote'
+        queryset = Note.objects.all()
+        authorization = NoteNoAuthorization()
 
 class UserResource(ModelResource):
     class Meta:
@@ -1666,6 +1696,23 @@ class ModelResourceTestCase(TestCase):
         resp = resource.get_detail(request, pk=300)
         self.assertEqual(resp.status_code, 404)
 
+    def test_get_detail_no_authorization(self):
+        resource = NoAuthorizationNoteResource()
+        request = HttpRequest()
+        request.GET = {'format': 'json'}
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resp = resource.get_detail(request, pk=1)
+
+    def test_get_list_no_authorization(self):
+        resource = NoAuthorizationNoteResource()
+        request = HttpRequest()
+        request.GET = {'format': 'json'}
+
+        resp = resource.get_list(request)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, '{"meta": {"limit": 20, "next": null, "offset": 0, "previous": null, "total_count": 6}, "objects": []}')
+
     def test_put_list(self):
         resource = NoteResource()
         request = MockRequest()
@@ -1722,6 +1769,38 @@ class ModelResourceTestCase(TestCase):
         self.assertTrue("title" in data)
         self.assertTrue("is_active" in data)
 
+    def test_put_detail_no_authorization_to_add(self):
+        self.assertEqual(Note.objects.count(), 6)
+        resource = NoAuthorizationNoteResource()
+        request = MockRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'PUT'
+        request.raw_post_data = '{"content": "The cat is back. The dog coughed him up out back.", "created": "2010-04-03 20:05:00", "is_active": true, "slug": "cat-is-back", "title": "The Cat Is Back", "updated": "2010-04-03 20:05:00"}'
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resp = resource.put_detail(request, pk=10)
+
+
+    def test_put_detail_no_authorization_to_change(self):
+        self.assertEqual(Note.objects.count(), 6)
+        resource = NoteResource()
+        request = MockRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'PUT'
+        request.raw_post_data = '{"content": "The cat is back. The dog coughed him up out back.", "created": "2010-04-03 20:05:00", "is_active": true, "slug": "cat-is-back", "title": "The Cat Is Back", "updated": "2010-04-03 20:05:00"}'
+
+        resp = resource.put_detail(request, pk=10)
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(Note.objects.count(), 7)
+        new_note = Note.objects.get(slug='cat-is-back')
+        self.assertEqual(new_note.content, "The cat is back. The dog coughed him up out back.")
+
+        no_auth_resource = NoAuthorizationNoteResource()
+        request.raw_post_data = '{"content": "The cat is gone again. I think it was the rabbits that ate him this time.", "created": "2010-04-03 20:05:00", "is_active": true, "slug": "cat-is-back", "title": "The Cat Is Gone", "updated": "2010-04-03 20:05:00"}'
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resp = no_auth_resource.put_detail(request, pk=10)
+
     def test_post_list(self):
         self.assertEqual(Note.objects.count(), 6)
         resource = NoteResource()
@@ -1748,6 +1827,18 @@ class ModelResourceTestCase(TestCase):
         self.assertTrue("title" in data)
         self.assertTrue("is_active" in data)
 
+    def test_post_list_no_athorization(self):
+        self.assertEqual(Note.objects.count(), 6)
+        resource = NoAuthorizationNoteResource()
+        request = MockRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'POST'
+        request.raw_post_data = '{"content": "The cat is back. The dog coughed him up out back.", "created": "2010-04-03 20:05:00", "is_active": true, "slug": "cat-is-back", "title": "The Cat Is Back", "updated": "2010-04-03 20:05:00"}'
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resp = resource.post_list(request)
+        self.assertEqual(Note.objects.count(), 6)
+
     def test_post_detail(self):
         resource = NoteResource()
         request = HttpRequest()
@@ -1769,6 +1860,19 @@ class ModelResourceTestCase(TestCase):
         # Only the non-actives are left alive.
         self.assertEqual(Note.objects.count(), 2)
 
+    def test_delete_list_no_authorization(self):
+        self.assertEqual(Note.objects.count(), 6)
+        resource = NoAuthorizationNoteResource()
+        request = HttpRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'DELETE'
+
+        resp = resource.delete_list(request)
+        self.assertEqual(resp.status_code, 204)
+        # Nothing should have been deleted since we have no authorization to
+        # delete anything.
+        self.assertEqual(Note.objects.count(), 6)
+
     def test_delete_detail(self):
         self.assertEqual(Note.objects.count(), 6)
         resource = NoteResource()
@@ -1779,6 +1883,17 @@ class ModelResourceTestCase(TestCase):
         resp = resource.delete_detail(request, pk=2)
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(Note.objects.count(), 5)
+
+    def test_delete_detail_no_authorization(self):
+        self.assertEqual(Note.objects.count(), 6)
+        resource = NoAuthorizationNoteResource()
+        request = HttpRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'DELETE'
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resp = resource.delete_detail(request, pk=2)
+        self.assertEqual(Note.objects.count(), 6)
 
     def test_patch_list(self):
         resource = NoteResource()
