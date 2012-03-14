@@ -1121,7 +1121,8 @@ class Resource(object):
         self.is_valid(bundle, request)
 
         bundle = self.kwargs_hydrate(bundle, **kwargs)
-        self.authorized_to_add(bundle, **self.remove_api_resource_names(kwargs))
+        bundle = self.full_hydrate(bundle)
+        self.authorized_to_add(bundle)
         updated_bundle = self.obj_create(bundle, request=request)
         location = self.get_resource_uri(updated_bundle)
 
@@ -1224,6 +1225,10 @@ class Resource(object):
                 updated_bundle = self.alter_detail_data_to_serialize(request, updated_bundle)
                 return self.create_response(request, updated_bundle, response_class=http.HttpAccepted)
         except (NotFound, MultipleObjectsReturned):
+            bundle = self.kwargs_hydrate(bundle, **kwargs)
+            bundle = self.full_hydrate(bundle)
+            self.authorized_to_add(bundle)
+
             updated_bundle = self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
             location = self.get_resource_uri(updated_bundle)
 
@@ -1242,10 +1247,22 @@ class Resource(object):
 
         If the resources are deleted, return ``HttpNoContent`` (204 No Content).
         """
-        bundle = self.build_bundle(request=request)
-        self.authorized_to_delete(bundle)
-        self.obj_delete_list(request=request, **self.remove_api_resource_names(kwargs))
+
+        authed_object_list = self.get_authed_object_list(request, **self.remove_api_resource_names(kwargs))
+        authorized_obj_list = []
+        for authed_obj in authed_object_list:
+            bundle = self.build_bundle(request=request, obj=authed_obj)
+            if self.authorized_to_delete(bundle, fail_silently=True):
+                authorized_obj_list.append(authed_obj)
+
+        self.obj_delete_list(request=request, _authed_object_list=authorized_obj_list, \
+            **self.remove_api_resource_names(kwargs))
         return http.HttpNoContent()
+
+    def get_authed_object_list(self, request, **kwargs):
+        base_object_list = self.get_object_list(request).filter(**kwargs)
+        authed_object_list = self.apply_authorization_limits(request, base_object_list)
+        return authed_object_list
 
     def delete_detail(self, request, **kwargs):
         """
@@ -1927,15 +1944,19 @@ class ModelResource(Resource):
 
         Takes optional ``kwargs``, which can be used to narrow the query.
         """
-        base_object_list = self.get_object_list(request).filter(**kwargs)
-        authed_object_list = self.apply_authorization_limits(request, base_object_list)
-
-        if hasattr(authed_object_list, 'delete'):
-            # It's likely a ``QuerySet``. Call ``.delete()`` for efficiency.
-            authed_object_list.delete()
-        else:
-            for authed_obj in authed_object_list:
+        if '_authed_object_list' in kwargs:
+            for authed_obj in kwargs['_authed_object_list']:
                 authed_obj.delete()
+
+        else:
+            authed_object_list = self.get_authed_object_list(request, **kwargs)
+
+            if hasattr(authed_object_list, 'delete'):
+                # It's likely a ``QuerySet``. Call ``.delete()`` for efficiency.
+                authed_object_list.delete()
+            else:
+                for authed_obj in authed_object_list:
+                    authed_obj.delete()
 
     def obj_delete(self, request=None, **kwargs):
         """
