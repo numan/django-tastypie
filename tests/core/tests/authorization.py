@@ -56,24 +56,41 @@ class NotAModelResource(Resource):
         authorization = DjangoAuthorization()
 
 
+authorization_method_map = {
+    'GET': 'to_read',
+    'POST': 'to_add',
+    'PUT': 'to_change',
+    'PATCH': 'to_change',
+    'DELETE': 'to_delete',
+}
+
 class AuthorizationTestCase(TestCase):
     fixtures = ['note_testdata']
+    def setUp(self):
+        self.basic_model = NoRulesNoteResource()
 
     def test_no_rules(self):
         request = HttpRequest()
+        note_resource = NoRulesNoteResource()
         for method in ('GET', 'POST', 'PUT', 'DELETE'):
             request.method = method
-            self.assertTrue(NoRulesNoteResource()._meta.authorization.is_authorized(request))
+            bundle = note_resource.build_bundle(request=request)
+            self.assertTrue(getattr(note_resource._meta.authorization, authorization_method_map[method])(bundle))
 
     def test_read_only(self):
         request = HttpRequest()
         request.method = 'GET'
-        self.assertTrue(ReadOnlyNoteResource()._meta.authorization.is_authorized(request))
+        read_only_resource = ReadOnlyNoteResource()
+
+        bundle = read_only_resource.build_bundle(request=request)
+
+        self.assertTrue(getattr(read_only_resource._meta.authorization, authorization_method_map['GET'])(bundle))
 
         for method in ('POST', 'PUT', 'DELETE'):
             request = HttpRequest()
             request.method = method
-            self.assertFalse(ReadOnlyNoteResource()._meta.authorization.is_authorized(request))
+            bundle = read_only_resource.build_bundle(request=request)
+            self.assertFalse(getattr(read_only_resource._meta.authorization, authorization_method_map[method])(bundle))
 
 class DjangoAuthorizationTestCase(TestCase):
     fixtures = ['note_testdata']
@@ -84,6 +101,7 @@ class DjangoAuthorizationTestCase(TestCase):
         self.delete = Permission.objects.get_by_natural_key('delete_note', 'core', 'note')
         self.user = User.objects.all()[0]
         self.user.user_permissions.clear()
+        self.django_note_resource = DjangoNoteResource()
 
     def test_no_perms(self):
         # sanity check: user has no permissions
@@ -92,12 +110,17 @@ class DjangoAuthorizationTestCase(TestCase):
         request = HttpRequest()
         request.method = 'GET'
         request.user = self.user
+
+        bundle = self.django_note_resource.build_bundle(request=request)
         # with no permissions, api is read-only
-        self.assertTrue(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['GET'])(bundle))
 
         for method in ('POST', 'PUT', 'DELETE'):
             request.method = method
-            self.assertFalse(DjangoNoteResource()._meta.authorization.is_authorized(request))
+            bundle = self.django_note_resource.build_bundle(request=request)
+            self.assertFalse(getattr(self.django_note_resource._meta.authorization, \
+                authorization_method_map[method])(bundle))
 
     def test_add_perm(self):
         request = HttpRequest()
@@ -106,7 +129,9 @@ class DjangoAuthorizationTestCase(TestCase):
         # give add permission
         request.user.user_permissions.add(self.add)
         request.method = 'POST'
-        self.assertTrue(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        bundle = self.django_note_resource.build_bundle(request=request)
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['POST'])(bundle))
 
     def test_change_perm(self):
         request = HttpRequest()
@@ -115,7 +140,9 @@ class DjangoAuthorizationTestCase(TestCase):
         # give change permission
         request.user.user_permissions.add(self.change)
         request.method = 'PUT'
-        self.assertTrue(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        bundle = self.django_note_resource.build_bundle(request=request)
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['PUT'])(bundle))
 
     def test_delete_perm(self):
         request = HttpRequest()
@@ -124,7 +151,10 @@ class DjangoAuthorizationTestCase(TestCase):
         # give delete permission
         request.user.user_permissions.add(self.delete)
         request.method = 'DELETE'
-        self.assertTrue(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        bundle = self.django_note_resource.build_bundle(request=request)
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['DELETE'])(bundle))
+
 
     def test_all(self):
         request = HttpRequest()
@@ -145,26 +175,32 @@ class DjangoAuthorizationTestCase(TestCase):
         # give add permission
         request.user.user_permissions.add(self.add)
         request.method = 'POST'
-        self.assertTrue(NotAModelResource()._meta.authorization.is_authorized(request))
+        bundle = self.django_note_resource.build_bundle(request=request)
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['POST'])(bundle))
 
     def test_patch_perms(self):
         request = HttpRequest()
         request.user = self.user
         request.method = 'PATCH'
+        bundle = self.django_note_resource.build_bundle(request=request)
 
         # Not enough.
         request.user.user_permissions.add(self.add)
-        self.assertFalse(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        self.assertFalse(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['PATCH'])(bundle))
 
         # Still not enough.
         request.user.user_permissions.add(self.change)
-        self.assertFalse(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        self.assertFalse(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['PATCH'])(bundle))
 
         # Much better.
         request.user.user_permissions.add(self.delete)
         # Nuke the perm cache. :/
         del request.user._perm_cache
-        self.assertTrue(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        self.assertTrue(getattr(self.django_note_resource._meta.authorization, \
+            authorization_method_map['PATCH'])(bundle))
 
     def test_unrecognized_method(self):
         request = HttpRequest()
@@ -173,3 +209,5 @@ class DjangoAuthorizationTestCase(TestCase):
         # Check a non-existent HTTP method.
         request.method = 'EXPLODE'
         self.assertFalse(DjangoNoteResource()._meta.authorization.is_authorized(request))
+
+
