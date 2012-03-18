@@ -783,7 +783,7 @@ class AlwaysUserNoteResource(NoteResource):
 
     def get_object_list(self, request):
         return super(AlwaysUserNoteResource, self).get_object_list(request).filter(author=request.user)
-        
+
 class NoAuthorizationNoteResource(NoteResource):
     class Meta:
         resource_name = 'noauthnote'
@@ -1744,6 +1744,20 @@ class ModelResourceTestCase(TestCase):
         resp = always_resource.put_list(request)
         self.assertEqual(resp.status_code, 202)
         self.assertTrue(resp.content.startswith('{"objects": ['))
+
+    def test_put_list_no_authorization_to_delete(self):
+        resource = NoAuthorizationNoteResource()
+        request = MockRequest()
+        request.GET = {'format': 'json'}
+        request.method = 'PUT'
+
+        self.assertEqual(Note.objects.count(), 6)
+        request.raw_post_data = '{"objects": [{"content": "The cat is back. The dog coughed him up out back.", "created": "2010-04-03 20:05:00", "is_active": true, "slug": "cat-is-back-again", "title": "The Cat Is Back", "updated": "2010-04-03 20:05:00"}]}'
+
+        with self.assertRaises(ImmediateHttpResponse):
+            resource.put_list(request)
+
+        self.assertEqual(Note.objects.count(), 6)
 
     def test_put_detail(self):
         self.assertEqual(Note.objects.count(), 6)

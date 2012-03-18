@@ -1157,7 +1157,8 @@ class Resource(object):
         Replaces a collection of resources with another collection.
 
         Calls ``delete_list`` to clear out the collection then ``obj_create``
-        with the provided the data to create the new collection.
+        with the provided the data to create the new collection. Throws an exception if
+        we are not allowed to delete any of the objects.
 
         Return ``HttpNoContent`` (204 No Content) if
         ``Meta.always_return_data = False`` (default).
@@ -1170,7 +1171,11 @@ class Resource(object):
 
         if not 'objects' in deserialized:
             raise BadRequest("Invalid data sent.")
-        self.obj_delete_list(request=request, **self.remove_api_resource_names(kwargs))
+
+        authed_object_list = self.get_authed_object_list(request, **self.remove_api_resource_names(kwargs))
+        deletable_object_list = self.get_deletable_auth_object_list(request, authed_object_list, fail_silently=False)
+
+        self.obj_delete_list(request=request, _authed_object_list=deletable_object_list, **self.remove_api_resource_names(kwargs))
         bundles_seen = []
 
         for object_data in deserialized['objects']:
@@ -1179,8 +1184,10 @@ class Resource(object):
             # Attempt to be transactional, deleting any previously created
             # objects if validation fails.
             try:
-                self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
-                self.authorized_to_change(bundle)
+                bundle = self.kwargs_hydrate(bundle, **self.remove_api_resource_names(kwargs))
+                bundle = self.full_hydrate(bundle)
+                self.authorized_to_add(bundle)
+                self.obj_create(bundle, request=request)
                 bundles_seen.append(bundle)
             except ImmediateHttpResponse:
                 self.rollback(bundles_seen)
@@ -1231,7 +1238,7 @@ class Resource(object):
             bundle = self.full_hydrate(bundle)
             self.authorized_to_add(bundle)
 
-            updated_bundle = self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
+            updated_bundle = self.obj_create(bundle, request=request)
             location = self.get_resource_uri(updated_bundle)
 
             if not self._meta.always_return_data:
@@ -1251,13 +1258,9 @@ class Resource(object):
         """
 
         authed_object_list = self.get_authed_object_list(request, **self.remove_api_resource_names(kwargs))
-        authorized_obj_list = []
-        for authed_obj in authed_object_list:
-            bundle = self.build_bundle(request=request, obj=authed_obj)
-            if self.authorized_to_delete(bundle, fail_silently=True):
-                authorized_obj_list.append(authed_obj)
+        deletable_object_list = self.get_deletable_auth_object_list(request, authed_object_list)
 
-        self.obj_delete_list(request=request, _authed_object_list=authorized_obj_list, \
+        self.obj_delete_list(request=request, _authed_object_list=deletable_object_list, \
             **self.remove_api_resource_names(kwargs))
         return http.HttpNoContent()
 
@@ -1265,6 +1268,14 @@ class Resource(object):
         base_object_list = self.get_object_list(request).filter(**kwargs)
         authed_object_list = self.apply_authorization_limits(request, base_object_list)
         return authed_object_list
+
+    def get_deletable_auth_object_list(self, request, authed_object_list, fail_silently=True, **kwargs):
+        authorized_obj_list = []
+        for authed_obj in authed_object_list:
+            bundle = self.build_bundle(request=request, obj=authed_obj)
+            if self.authorized_to_delete(bundle, fail_silently=fail_silently):
+                authorized_obj_list.append(authed_obj)
+        return authorized_obj_list
 
     def delete_detail(self, request, **kwargs):
         """
@@ -1370,6 +1381,8 @@ class Resource(object):
                 # like a POST to the list resource.
                 data = self.alter_deserialized_detail_data(request, data)
                 bundle = self.build_bundle(data=dict_strip_unicode_keys(data))
+                bundle = self.kwargs_hydrate(bundle, **self.remove_api_resource_names(kwargs))
+                bundle = self.full_hydrate(bundle)
                 self.authorized_to_add(bundle)
                 self.obj_create(bundle, request=request)
 
@@ -1862,8 +1875,9 @@ class ModelResource(Resource):
         """
         A ORM-specific implementation of ``obj_create``.
         """
-        bundle = self.kwargs_hydrate(bundle, **kwargs)
-        bundle = self.full_hydrate(bundle)
+        if not kwargs or not bundle.obj:
+            bundle = self.kwargs_hydrate(bundle, **kwargs)
+            bundle = self.full_hydrate(bundle)
         self.is_valid(bundle,request)
 
         if bundle.errors:
