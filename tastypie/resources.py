@@ -2028,6 +2028,12 @@ class ModelResource(Resource):
             if field_object.blank and not bundle.data.has_key(field_name):
                 continue
 
+            if field_object.readonly:
+                continue
+
+            if isinstance(bundle.data[field_name], basestring):
+                continue
+
             # Get the object.
             try:
                 related_obj = getattr(bundle.obj, field_object.attribute)
