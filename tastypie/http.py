@@ -4,12 +4,16 @@ The various HTTP responses for use in returning proper HTTP codes.
 from __future__ import unicode_literals
 from django.http import HttpResponse
 
+class HttpErrorResponse(HttpResponse):
+    pass
+
 
 class HttpCreated(HttpResponse):
     status_code = 201
 
     def __init__(self, *args, **kwargs):
         location = kwargs.pop('location', '')
+
 
         super(HttpCreated, self).__init__(*args, **kwargs)
         self['Location'] = location
@@ -71,10 +75,10 @@ class HttpTooManyRequests(HttpResponse):
     status_code = 429
 
 
-class HttpApplicationError(HttpResponse):
+class HttpApplicationError(HttpErrorResponse):
     status_code = 500
 
 
-class HttpNotImplemented(HttpResponse):
+class HttpNotImplemented(HttpErrorResponse):
     status_code = 501
 
