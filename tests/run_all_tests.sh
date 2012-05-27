@@ -39,3 +39,8 @@ echo
 echo
 echo "** Validation **"
 django-admin.py test validation --settings=settings_validation
+
+echo
+echo
+echo "** Authorization Hooks **"
+django-admin.py test authorization --settings=settings_authorization
