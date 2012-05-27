@@ -151,10 +151,10 @@ class DjangoAuthorization(Authorization):
         klass = self.base_checks(bundle.request, object_list.model)
 
         if klass is False:
-            return False
+            return []
 
         # GET-style methods are always allowed.
-        return True
+        return object_list
 
     def read_detail(self, object_list, bundle):
         klass = self.base_checks(bundle.request, bundle.obj.__class__)
@@ -172,7 +172,7 @@ class DjangoAuthorization(Authorization):
             return False
 
         permission = '%s.add_%s' % (klass._meta.app_label, klass._meta.module_name)
-        return bundle.request.user.has_perm(permission)
+        return object_list if bundle.request.user.has_perm(permission) else []
 
     def create_detail(self, object_list, bundle):
         klass = self.base_checks(bundle.request, bundle.obj.__class__)
@@ -184,13 +184,13 @@ class DjangoAuthorization(Authorization):
         return bundle.request.user.has_perm(permission)
 
     def update_list(self, object_list, bundle):
-        klass = self.base_checks(bundle.request, bundle.request, object_list.model)
+        klass = self.base_checks(bundle.request, object_list.model)
 
         if klass is False:
             return False
 
         permission = '%s.change_%s' % (klass._meta.app_label, klass._meta.module_name)
-        return bundle.request.user.has_perm(permission)
+        return object_list if bundle.request.user.has_perm(permission) else []
 
     def update_detail(self, object_list, bundle):
         klass = self.base_checks(bundle.request, bundle.obj.__class__)
@@ -208,7 +208,7 @@ class DjangoAuthorization(Authorization):
             return False
 
         permission = '%s.delete_%s' % (klass._meta.app_label, klass._meta.module_name)
-        return bundle.request.user.has_perm(permission)
+        return object_list if bundle.request.user.has_perm(permission) else []
 
     def delete_detail(self, object_list, bundle):
         klass = self.base_checks(bundle.request, bundle.obj.__class__)
