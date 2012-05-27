@@ -364,7 +364,7 @@ class DjangoAuthorizationTestCase(TestCase):
         request.user.user_permissions.add(self.add)
         request.method = 'POST'
 
-        self.assertTrue(getattr(self.not_a_model_resource._meta.authorization, \
+        self.assertFalse(getattr(self.not_a_model_resource._meta.authorization, \
             authorization_detail_map['POST'])(obj_list, bundle))
 
     def test_not_a_model_post_perm_list(self):
