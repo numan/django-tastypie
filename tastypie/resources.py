@@ -2049,6 +2049,13 @@ class ModelResource(Resource):
 
             # Because sometimes it's ``None`` & that's OK.
             if related_obj:
+                if getattr(bundle, "related_obj", None) is not None and \
+                    getattr(bundle, "related_name", None) is not None and \
+                    field_object.attribute == bundle.related_name:
+
+                    setattr(bundle.obj, field_object.attribute, related_obj)
+                    continue
+
                 related_resource = field_object.get_related_resource(related_obj)
                 related_bundle = related_resource.build_bundle(obj=related_obj, request=bundle.request)
 
@@ -2093,7 +2100,7 @@ class ModelResource(Resource):
                 # FIXME: Dupe the original bundle, copy in the new object &
                 #        check the perms on that (usin the related resource)?
                 related_resource = field_object.get_related_resource(related_bundle.obj)
-                related_bundle = related_resource.build_bundle(obj=related_bundle.obj, request=related_bundle.request)
+                # related_bundle = related_resource.build_bundle(obj=related_bundle.obj, request=related_bundle.request)
 
                 # FIXME: To avoid excessive saves, we may need to pass along a
                 #        set of objects/pks seens so as not to resave.
