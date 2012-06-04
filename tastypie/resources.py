@@ -2005,6 +2005,7 @@ class ModelResource(Resource):
         else:
             self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
 
+
         # Save FKs just in case.
         self.save_related(bundle)
 
@@ -2057,7 +2058,8 @@ class ModelResource(Resource):
                     continue
 
                 related_resource = field_object.get_related_resource(related_obj)
-                related_bundle = related_resource.build_bundle(obj=related_obj, request=bundle.request)
+                related_data = bundle.data.get(field_name, None)
+                related_bundle = related_resource.build_bundle(obj=related_obj, data=related_data, request=bundle.request)
 
                 # FIXME: To avoid excessive saves, we may need to pass along a
                 #        set of objects/pks seens so as not to resave.
