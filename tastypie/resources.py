@@ -1262,17 +1262,12 @@ class Resource(object):
         deserialized = self.deserialize(request, request.raw_post_data, format=request.META.get('CONTENT_TYPE', 'application/json'))
         deserialized = self.alter_deserialized_detail_data(request, deserialized)
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
-        try:
-            obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
-        except ObjectDoesNotExist:
-            return http.HttpNotFound()
-        except MultipleObjectsReturned:
-            return http.HttpMultipleChoices("More than one resource is found at this URI.")
-        bundle.obj = obj
-        self.is_valid(bundle, request)
-        self.authorized_update_detail(self.get_object_list(request), bundle)
 
         try:
+            obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
+            bundle.obj = obj
+            self.is_valid(bundle, request)
+            self.authorized_update_detail(self.get_object_list(request), bundle)
             updated_bundle = self.obj_update(bundle, request=request, **self.remove_api_resource_names(kwargs))
 
             if not self._meta.always_return_data:
@@ -1281,7 +1276,7 @@ class Resource(object):
                 updated_bundle = self.full_dehydrate(updated_bundle)
                 updated_bundle = self.alter_detail_data_to_serialize(request, updated_bundle)
                 return self.create_response(request, updated_bundle, response_class=http.HttpAccepted)
-        except (NotFound, MultipleObjectsReturned):
+        except (ObjectDoesNotExist, MultipleObjectsReturned, NotFound, MultipleObjectsReturned):
             updated_bundle = self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
             location = self.get_resource_uri(updated_bundle)
 
@@ -1300,10 +1295,6 @@ class Resource(object):
 
         If the resources are deleted, return ``HttpNoContent`` (204 No Content).
         """
-        bundle = self.build_bundle(request=request)
-        # FIXME: This still kinda bites because it may not be the correct list
-        #        of objects.
-        self.authorized_delete_list(self.get_object_list(request), bundle)
         self.obj_delete_list(request=request, **self.remove_api_resource_names(kwargs))
         return http.HttpNoContent()
 
@@ -1874,8 +1865,11 @@ class ModelResource(Resource):
         filters.update(kwargs)
         applicable_filters = self.build_filters(filters=filters)
 
+        bundle = self.build_bundle(request=request)
+
         try:
-            return self.apply_filters(request, applicable_filters)
+            base_object_list = self.apply_filters(request, applicable_filters)
+            return self._meta.authorization.read_list(base_object_list, bundle)
         except ValueError:
             raise BadRequest("Invalid resource lookup data provided (mismatched type).")
 
@@ -1952,12 +1946,14 @@ class ModelResource(Resource):
         Takes optional ``kwargs``, which can be used to narrow the query.
         """
         base_object_list = self.get_object_list(request).filter(**kwargs)
+        bundle = self.build_bundle(request=request)
+        authed_deleted_list = self.authorized_delete_list(base_object_list, bundle)
 
-        if hasattr(base_object_list, 'delete'):
+        if hasattr(authed_deleted_list, 'delete'):
             # It's likely a ``QuerySet``. Call ``.delete()`` for efficiency.
-            base_object_list.delete()
+            authed_deleted_list.delete()
         else:
-            for authed_obj in base_object_list:
+            for authed_obj in authed_deleted_list:
                 authed_obj.delete()
 
     def obj_delete(self, request=None, **kwargs):
