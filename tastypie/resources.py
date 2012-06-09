@@ -1477,8 +1477,6 @@ class Resource(object):
         self.is_authenticated(request)
         self.throttle_check(request)
         self.log_throttled_access(request)
-        bundle = self.build_bundle(request=request)
-        self.authorized_read_detail(self.get_object_list(request), bundle)
         return self.create_response(request, self.build_schema())
 
     def get_multiple(self, request, **kwargs):
