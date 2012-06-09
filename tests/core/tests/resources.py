@@ -710,6 +710,7 @@ class AlwaysDataNoteResource(NoteResource):
         resource_name = 'alwaysdatanote'
         queryset = Note.objects.filter(is_active=True)
         always_return_data = True
+        authorization = Authorization()
 
 
 class VeryCustomNoteResource(NoteResource):
@@ -754,6 +755,7 @@ class CustomPageNoteResource(NoteResource):
 class UserResource(ModelResource):
     class Meta:
         queryset = User.objects.all()
+        authorization = Authorization()
 
     def get_resource_uri(self, bundle_or_obj):
         return '/api/v1/users/%s/' % bundle_or_obj.obj.id
@@ -816,6 +818,7 @@ class SubjectResource(ModelResource):
         filtering = {
             'name': ALL,
         }
+        authorization = Authorization()
 
 
 class RelatedNoteResource(ModelResource):
@@ -830,6 +833,7 @@ class RelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class AnotherSubjectResource(ModelResource):
@@ -856,6 +860,7 @@ class AnotherRelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class YetAnotherRelatedNoteResource(ModelResource):
@@ -870,11 +875,16 @@ class YetAnotherRelatedNoteResource(ModelResource):
             'subjects': ALL_WITH_RELATIONS,
         }
         fields = ['title', 'slug', 'content', 'created', 'is_active']
+        authorization = Authorization()
 
 
 class NullableRelatedNoteResource(AnotherRelatedNoteResource):
     author = fields.ForeignKey(UserResource, 'author', null=True)
     subjects = fields.ManyToManyField(SubjectResource, 'subjects', null=True)
+
+    class Meta:
+        queryset = Note.objects.all()
+        authorization = Authorization()
 
 
 class NullableMediaBitResource(ModelResource):

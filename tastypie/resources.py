@@ -536,7 +536,7 @@ class Resource(object):
         request_method = request.method.lower()
         self._meta.throttle.accessed(self._meta.authentication.get_identifier(request), url=request.get_full_path(), request_method=request_method)
 
-    def unauthorized_result(self, exception):
+    def unauthorized_result(self, exception=Exception()):
         raise ImmediateHttpResponse(response=http.HttpUnauthorized())
 
     def authorized_read_list(self, object_list, bundle):
@@ -560,6 +560,9 @@ class Resource(object):
             auth_result = self._meta.authorization.read_detail(object_list, bundle)
         except Unauthorized, e:
             self.unauthorized_result(e)
+
+        if not auth_result:
+            self.unauthorized_result()
 
         return auth_result
 
@@ -585,6 +588,9 @@ class Resource(object):
         except Unauthorized, e:
             self.unauthorized_result(e)
 
+        if not auth_result:
+            self.unauthorized_result()
+
         return auth_result
 
     def authorized_update_list(self, object_list, bundle):
@@ -609,6 +615,9 @@ class Resource(object):
         except Unauthorized, e:
             self.unauthorized_result(e)
 
+        if not auth_result:
+            self.unauthorized_result()
+
         return auth_result
 
     def authorized_delete_list(self, object_list, bundle):
@@ -632,6 +641,9 @@ class Resource(object):
             auth_result = self._meta.authorization.delete_detail(object_list, bundle)
         except Unauthorized, e:
             self.unauthorized_result(e)
+
+        if not auth_result:
+            self.unauthorized_result()
 
         return auth_result
 

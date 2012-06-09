@@ -12,6 +12,7 @@ class UserResource(ModelResource):
         resource_name = 'users'
         queryset = User.objects.all()
         allowed_methods = ['get']
+        authorization = Authorization()
 
 
 class NoteResource(ModelResource):
