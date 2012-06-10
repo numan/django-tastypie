@@ -380,7 +380,7 @@ class DjangoAuthorizationTestCase(TestCase):
         authorized_obj_list = getattr(self.not_a_model_resource._meta.authorization, \
             authorization_list_map['POST'])(obj_list, bundle)
 
-        self.assertTrue(authorized_obj_list is obj_list)
+        self.assertFalse(authorized_obj_list is obj_list)
 
     #Not sure if this is a valid use case anymore
     def test_unrecognized_method(self):

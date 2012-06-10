@@ -810,6 +810,7 @@ class RequiredFKNoteResource(ModelResource):
     class Meta:
         resource_name = 'requiredfknotes'
         queryset = NoteWithEditor.objects.all()
+        authorization = Authorization()
 
 
 class ThrottledNoteResource(NoteResource):
