@@ -124,10 +124,6 @@ class NoteResource(ModelResource):
         queryset = Note.objects.all()
         authorization = UserObjectAuthorization()
 
-    def obj_create(self, bundle, request=None, **kwargs):
-        """
-        Making request.user owner of the new note.
-        """
-        bundle = super(NoteResource, self).obj_create(bundle, request, user=request.user, **kwargs)
-
+    def hydrate_user(self, bundle):
+        bundle.data['user'] = bundle.request.user
         return bundle

@@ -1237,7 +1237,6 @@ class Resource(object):
         deserialized = self.alter_deserialized_detail_data(request, deserialized)
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
         self.is_valid(bundle, request)
-        self.authorized_create_detail(self.get_object_list(request), bundle)
         updated_bundle = self.obj_create(bundle, request=request, **self.remove_api_resource_names(kwargs))
         location = self.get_resource_uri(updated_bundle)
 
@@ -1463,14 +1462,12 @@ class Resource(object):
                     # so this is a create-by-PUT equivalent.
                     data = self.alter_deserialized_detail_data(request, data)
                     bundle = self.build_bundle(data=dict_strip_unicode_keys(data), request=request)
-                    self.authorized_create_detail(self.get_object_list(request), bundle)
                     self.obj_create(bundle, request=request)
             else:
                 # There's no resource URI, so this is a create call just
                 # like a POST to the list resource.
                 data = self.alter_deserialized_detail_data(request, data)
                 bundle = self.build_bundle(data=dict_strip_unicode_keys(data), request=request)
-                self.authorized_create_detail(self.get_object_list(request), bundle)
                 self.obj_create(bundle, request=request)
 
         if len(deserialized.get('deleted_objects', [])) and 'delete' not in self._meta.detail_allowed_methods:
@@ -2085,16 +2082,16 @@ class ModelResource(Resource):
                 bundle.obj.delete()
 
     def save(self, bundle):
-        self.is_valid(bundle, bundle.request)
-
-        if bundle.errors:
-            self.error_response(bundle.errors, bundle.request)
-
         # Check if they're authorized.
         if bundle.obj.pk:
             self.authorized_update_detail(self.get_object_list(bundle.request), bundle)
         else:
             self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
+
+        self.is_valid(bundle, bundle.request)
+
+        if bundle.errors:
+            self.error_response(bundle.errors, bundle.request)
 
         # Save FKs just in case.
         self.save_related(bundle)

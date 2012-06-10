@@ -76,7 +76,7 @@ class AuthTestCase(TestCase):
             status_code=401)
         resp, content = self.parse_response(
             self.client.post(list_url, **headers),
-            status_code=401)
+            status_code=400)
         resp, content = self.parse_response(
             self.client.delete(detail_url, **headers),
             status_code=401)
