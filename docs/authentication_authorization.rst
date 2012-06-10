@@ -1,17 +1,20 @@
-.. _ref-authentication_authorization:
+.. _authentication_authorization:
 
 ==============================
 Authentication / Authorization
 ==============================
 
-Authentication & authorization make up the components needed to verify that
-a certain user has access to the API and what they can do with it.
+Authentication & authorization make up the components needed to verify who a
+certain user is and to validate their access to the API and what they can do
+with it.
 
-Authentication answers the question "can they see this data?" This usually
-involves requiring credentials, such as an API key or username/password.
+Authentication answers the question "Who is this person?" This usually involves
+requiring credentials, such as an API key or username/password or oAuth tokens.
 
-Authorization answers the question "what objects can they modify?" This usually
-involves checking permissions, but is open to other implementations.
+Authorization answers the question "Is permission granted for this user to take
+this action?" This usually involves checking permissions such as
+Create/Read/Update/Delete access, or putting limits on what data the user
+can access.
 
 Usage
 =====
@@ -128,6 +131,28 @@ consumption.
 
 .. _mechanize: http://pypi.python.org/pypi/mechanize/
 
+``MultiAuthentication``
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This authentication class actually wraps any number of other authentication classes,
+attempting each until successfully authenticating. For example::
+
+    from django.contrib.auth.models import User
+    from tastypie.authentication import BasicAuthentication, ApiKeyAuthentication, MultiAuthentication
+    from tastypie.authorization import DjangoAuthorization
+    from tastypie.resources import ModelResource
+
+    class UserResource(ModelResource):
+        class Meta:
+            queryset = User.objects.all()
+            resource_name = 'auth/user'
+            excludes = ['email', 'password', 'is_superuser']
+
+            authentication = MultiAuthentication(BasicAuthentication(), ApiKeyAuthentication())
+            authorization = DjangoAuthorization()
+
+
+In the case of an authentication returning a customized HttpUnauthorized, MultiAuthentication defaults to the first returned one. Authentication schemes that need to control the response, such as the included BasicAuthentication and DigestAuthentication, should be placed first.
 
 Authorization Options
 =====================
