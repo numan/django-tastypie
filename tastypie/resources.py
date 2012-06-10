@@ -2132,7 +2132,7 @@ class ModelResource(Resource):
             if field_object.readonly:
                 continue
 
-            if bundle.data.has_key(field_name) is None \
+            if not bundle.data.has_key(field_name) \
                 or isinstance(bundle.data[field_name], basestring):
                 continue
 
