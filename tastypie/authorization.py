@@ -147,8 +147,18 @@ class DjangoAuthorization(Authorization):
 
         return model_klass
 
+    def get_model(self, object_list):
+        try:
+            model = getattr(object_list, "model", object_list[0].__class__)
+        except IndexError:
+            model = None
+
+        return model
+
     def read_list(self, object_list, bundle):
-        klass = self.base_checks(bundle.request, getattr(object_list, "model", None))
+        model = self.get_model(object_list)
+
+        klass = self.base_checks(bundle.request, model)
 
         if klass is False:
             return []
@@ -166,7 +176,9 @@ class DjangoAuthorization(Authorization):
         return True
 
     def create_list(self, object_list, bundle):
-        klass = self.base_checks(bundle.request, getattr(object_list, "model", None))
+        model = self.get_model(object_list)
+
+        klass = self.base_checks(bundle.request, model)
 
         if klass is False:
             return False
@@ -184,7 +196,9 @@ class DjangoAuthorization(Authorization):
         return bundle.request.user.has_perm(permission)
 
     def update_list(self, object_list, bundle):
-        klass = self.base_checks(bundle.request, getattr(object_list, "model", None))
+        model = self.get_model(object_list)
+
+        klass = self.base_checks(bundle.request, model)
 
         if klass is False:
             return False
@@ -202,7 +216,9 @@ class DjangoAuthorization(Authorization):
         return bundle.request.user.has_perm(permission)
 
     def delete_list(self, object_list, bundle):
-        klass = self.base_checks(bundle.request, getattr(object_list, "model", None))
+        model = self.get_model(object_list)
+
+        klass = self.base_checks(bundle.request, model)
 
         if klass is False:
             return False
