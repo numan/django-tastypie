@@ -386,7 +386,8 @@ class DjangoAuthorizationTestCase(TestCase):
     def test_unrecognized_method(self):
         request = HttpRequest()
         request.user = self.user
+        bundle = self.not_a_model_resource.build_bundle(request=request)
 
         # Check a non-existent HTTP method.
         request.method = 'EXPLODE'
-        self.assertFalse(DjangoNoteResource()._meta.authorization.is_authorized(request))
+        self.assertFalse(DjangoNoteResource()._meta.authorization.read_detail([], bundle))
