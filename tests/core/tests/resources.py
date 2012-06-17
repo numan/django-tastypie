@@ -751,6 +751,7 @@ class CustomPageNoteResource(NoteResource):
         limit = 10
         resource_name = 'pagey'
         paginator_class = CustomPaginator
+        collection_name = 'pages'
         queryset = Note.objects.all()
 
 
@@ -2939,7 +2940,7 @@ class ModelResourceTestCase(TestCase):
         customs = CustomPageNoteResource().get_list(mock_request)
         data = json.loads(customs.content)
         self.assertEqual(len(data), 3)
-        self.assertEqual(len(data['objects']), 6)
+        self.assertEqual(len(data['pages']), 6)
         self.assertEqual(data['extra'], 'Some extra stuff here.')
 
     def test_readonly_full_hydrate(self):
