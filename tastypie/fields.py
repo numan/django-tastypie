@@ -452,10 +452,16 @@ class RelatedField(ApiField):
         Defaults to ``all``.
         
         Optionally accepts a ``full_list``, which indicated whether or not
-        data should be fully hydrated in list format. Defaults to ``False``.
+        data should be fully dehydrated when the request is for a list of
+        resources. Accepts ``True``, ``False`` or a callable that accepts
+        a bundle and returns ``True`` or ``False``. Depends on ``full``
+        being ``True``. Defaults to ``True``.
 
         Optionally accepts a ``full_detail``, which indicated whether or not
-        data should be fully hydrated in detail format. Defaults to ``False``.
+        data should be fully dehydrated when then request is for a single
+        resource. Accepts ``True``, ``False`` or a callable that accepts a
+        bundle and returns ``True`` or ``False``.Depends on ``full``
+        being ``True``. Defaults to ``True``.
         """
         self.instance_name = None
         self._resource = None
