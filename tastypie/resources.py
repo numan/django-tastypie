@@ -285,12 +285,10 @@ class Resource(object):
         """
         The standard URLs this ``Resource`` should respond to.
         """
-        # Due to the way Django parses URLs, ``get_multiple`` won't work without
-        # a trailing slash.
         return [
             url(r"^(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
             url(r"^(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
-            url(r"^(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)/$" % (self._meta.resource_name, self._meta.detail_uri_name), self.wrap_view('get_multiple'), name="api_get_multiple"),
+            url(r"^(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
             url(r"^(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
         ]
 
@@ -784,13 +782,24 @@ class Resource(object):
 
     # Data preparation.
 
-    def full_dehydrate(self, bundle):
+    def full_dehydrate(self, bundle, for_list=False):
         """
         Given a bundle with an object instance, extract the information from it
         to populate the resource.
         """
+        use_in = ['all', 'list' if for_list else 'detail']
+
         # Dehydrate each field.
         for field_name, field_object in self.fields.items():
+            # If it's not for use in this mode, skip
+            field_use_in = getattr(field_object, 'use_in', 'all')
+            if callable(field_use_in):
+                if not field_use_in(bundle):
+                    continue
+            else:
+                if field_use_in not in use_in:
+                    continue
+
             # A touch leaky but it makes URI resolution work.
             if getattr(field_object, 'dehydrated_type', None) == 'related':
                 field_object.api_name = self._meta.api_name
@@ -1193,7 +1202,7 @@ class Resource(object):
 
         for obj in to_be_serialized[self._meta.collection_name]:
             bundle = self.build_bundle(obj=obj, request=request)
-            bundles.append(self.full_dehydrate(bundle))
+            bundles.append(self.full_dehydrate(bundle, for_list=True))
 
         to_be_serialized[self._meta.collection_name] = bundles
         to_be_serialized = self.alter_list_data_to_serialize(request, to_be_serialized)
@@ -2259,9 +2268,9 @@ class ModelResource(Resource):
         kwargs = {}
 
         if isinstance(bundle_or_obj, Bundle):
-            kwargs[self._meta.detail_uri_name] = bundle_or_obj.obj.pk
+            kwargs[self._meta.detail_uri_name] = getattr(bundle_or_obj.obj, self._meta.detail_uri_name)
         else:
-            kwargs[self._meta.detail_uri_name] = bundle_or_obj.id
+            kwargs[self._meta.detail_uri_name] = getattr(bundle_or_obj, self._meta.detail_uri_name)
 
         return kwargs
 

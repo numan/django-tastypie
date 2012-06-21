@@ -25,7 +25,7 @@ class ApiField(object):
     dehydrated_type = 'string'
     help_text = ''
 
-    def __init__(self, attribute=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, unique=False, help_text=None):
+    def __init__(self, attribute=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, unique=False, help_text=None, use_in='all'):
         """
         Sets up the field. This is generally called when the containing
         ``Resource`` is initialized.
@@ -54,6 +54,12 @@ class ApiField(object):
         Optionally accepts ``help_text``, which lets you provide a
         human-readable description of the field exposed at the schema level.
         Defaults to the per-Field definition.
+
+        Optionally accepts a ``use_in``. This may be one of ``list``, ``detail``
+        ``all`` or a callable which accepts a bundle object and returns
+        ``True`` or ``False``. Indicates wheather this field will be included
+        during dehydration or a list of object or a single object.
+        Defaults to ``all``.
         """
         # Track what the index thinks this field is called.
         self.instance_name = None
@@ -65,6 +71,7 @@ class ApiField(object):
         self.readonly = readonly
         self.value = None
         self.unique = unique
+        self.use_in = use_in if use_in in ['all', 'detail', 'list'] or callable(use_in) else 'all'
 
         if help_text:
             self.help_text = help_text
