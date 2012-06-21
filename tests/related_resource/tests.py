@@ -133,6 +133,7 @@ class ExplicitM2MResourceRegressionTest(TestCase):
         self.assertEqual(data['name'], 'exam')
 
         resource = api.canonical_resource_for('tag')
+        request.path = "/v1/tag/%(pk)s/" % {'pk': self.tag_1.pk}
         resp = resource.wrap_view('dispatch_detail')(request, pk=self.tag_1.pk)
         data = json.loads(resp.content)
         self.assertEqual(resp.status_code, 200)
@@ -420,6 +421,8 @@ class FullCategoryResource(CategoryResource):
 
 
 class RelatedPatchTestCase(TestCase):
+    urls = 'related_resource.api.urls'
+
     def test_patch_to_one(self):
         resource = FullCategoryResource()
         cat1 = Category.objects.create(name='Dad')
@@ -428,6 +431,7 @@ class RelatedPatchTestCase(TestCase):
         request = HttpRequest()
         request.GET = {'format': 'json'}
         request.method = 'PATCH'
+        request.path = "/v1/category/%(pk)s/" % {'pk': cat2.pk}
         request._read_started = False
 
         data = {
