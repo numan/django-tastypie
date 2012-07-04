@@ -2183,6 +2183,9 @@ class ModelResource(Resource):
             if field_object.readonly:
                 continue
 
+            if hasattr(bundle.data, "has_key") and not bundle.data.has_key(field_name):
+                continue
+
             if hasattr(bundle.data, "has_key") and bundle.data.has_key(field_name) and isinstance(bundle.data.get(field_name), basestring):
                 continue
 

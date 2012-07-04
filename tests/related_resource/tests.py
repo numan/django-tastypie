@@ -234,6 +234,7 @@ class NestedRelatedResourceTest(TestCase):
         pk = Person.objects.all()[0].pk
         request = MockRequest()
         request.method = 'GET'
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.get_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 200)
         
@@ -286,6 +287,7 @@ class NestedRelatedResourceTest(TestCase):
         pk = Person.objects.all()[0].pk
         request = MockRequest()
         request.method = 'GET'
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.get_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 200)
         
@@ -303,6 +305,7 @@ class NestedRelatedResourceTest(TestCase):
         request.GET = {'format': 'json'}
         request.method = 'PUT'
         request.raw_post_data = resp.content
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.put_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 204)
 
@@ -339,6 +342,7 @@ class NestedRelatedResourceTest(TestCase):
         pk = Person.objects.all()[0].pk
         request = MockRequest()
         request.method = 'GET'
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.get_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 200)
         
@@ -356,6 +360,7 @@ class NestedRelatedResourceTest(TestCase):
         request.GET = {'format': 'json'}
         request.method = 'PUT'
         request.raw_post_data = resp.content
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.put_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 204)
 
@@ -394,6 +399,7 @@ class NestedRelatedResourceTest(TestCase):
         pk = Person.objects.all()[0].pk
         request = MockRequest()
         request.method = 'GET'
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         resp = pr.get_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 200)
         
@@ -411,6 +417,7 @@ class NestedRelatedResourceTest(TestCase):
         request = MockRequest()
         request.GET = {'format': 'json'}
         request.method = 'PUT'
+        request.path = "/v1/person/%(pk)s/" % {"pk": pk}
         request.raw_post_data = resp.content
         resp = pr.put_detail(request, pk=pk)
         self.assertEqual(resp.status_code, 204)
