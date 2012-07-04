@@ -2177,10 +2177,13 @@ class ModelResource(Resource):
             if not field_object.attribute:
                 continue
 
-            if field_object.blank and not bundle.data.has_key(field_name):
+            if field_object.blank and hasattr(bundle.data, "has_key") and not bundle.data.has_key(field_name):
                 continue
 
             if field_object.readonly:
+                continue
+
+            if hasattr(bundle.data, "has_key") and bundle.data.has_key(field_name) and isinstance(bundle.data.get(field_name), basestring):
                 continue
 
             # Get the object.
