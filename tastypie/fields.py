@@ -394,7 +394,7 @@ class RelatedField(ApiField):
     self_referential = False
     help_text = 'A related resource. Can be either a URI or set of nested resource data.'
 
-    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, full_list=True, full_detail=True):
+    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, full_list=True, full_detail=True, use_in='all'):
         """
         Builds the field and prepares it to access to related data.
 
@@ -430,6 +430,12 @@ class RelatedField(ApiField):
         human-readable description of the field exposed at the schema level.
         Defaults to the per-Field definition.
 
+        Optionally accepts a ``use_in``. This may be one of ``list``, ``detail``
+        ``all`` or a callable which accepts a bundle object and returns
+        ``True`` or ``False``. Indicates wheather this field will be included
+        during dehydration or a list of object or a single object.
+        Defaults to ``all``.
+
         Optionally accepts a ``full_list``, which indicated whether or not
         data should be fully dehydrated when the request is for a list of
         resources. Accepts ``True``, ``False`` or a callable that accepts
@@ -458,6 +464,7 @@ class RelatedField(ApiField):
         self._to_class = None
         self.full_list = full_list
         self.full_detail = full_detail
+        self.use_in = use_in if use_in in ['all', 'detail', 'list'] or callable(use_in) else 'all'
 
         if self.to == 'self':
             self.self_referential = True
