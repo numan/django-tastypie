@@ -394,7 +394,7 @@ class RelatedField(ApiField):
     self_referential = False
     help_text = 'A related resource. Can be either a URI or set of nested resource data.'
 
-    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, full_list=True, full_detail=True, use_in='all'):
+    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, use_in='all', full_list=True, full_detail=True):
         """
         Builds the field and prepares it to access to related data.
 
@@ -661,11 +661,11 @@ class ToOneField(RelatedField):
 
     def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED,
                  null=False, blank=False, readonly=False, full=False,
-                 unique=False, help_text=None, full_list=True, full_detail=True):
+                 unique=False, help_text=None, use_in='all', full_list=True, full_detail=True):
         super(ToOneField, self).__init__(
             to, attribute, related_name=related_name, default=default,
             null=null, blank=blank, readonly=readonly, full=full,
-            unique=unique, help_text=help_text, full_list=full_list, full_detail=full_detail
+            unique=unique, help_text=help_text, use_in=use_in, full_list=full_list, full_detail=full_detail
         )
         self.fk_resource = None
 
@@ -727,11 +727,11 @@ class ToManyField(RelatedField):
 
     def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED,
                  null=False, blank=False, readonly=False, full=False,
-                 unique=False, help_text=None, full_list=True, full_detail=True):
+                 unique=False, help_text=None, use_in='all', full_list=True, full_detail=True):
         super(ToManyField, self).__init__(
             to, attribute, related_name=related_name, default=default,
             null=null, blank=blank, readonly=readonly, full=full,
-            unique=unique, help_text=help_text, full_list=full_list, full_detail=full_detail
+            unique=unique, help_text=help_text, use_in=use_in, full_list=full_list, full_detail=full_detail
         )
         self.m2m_bundles = []
 
