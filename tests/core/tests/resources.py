@@ -670,8 +670,13 @@ class ResourceTestCase(TestCase):
 # Model-based tests...
 # ====================
 
+class DateRecordResourceAuthorization(Authorization):
+    def create_detail(self, object_list, bundle):
+        return True
+
 class DateRecordResource(ModelResource):
     class Meta:
+        authorization = DateRecordResourceAuthorization()
         queryset = DateRecord.objects.all()
         always_return_data = True
 
@@ -1059,11 +1064,17 @@ class PerObjectNoteResource(NoteResource):
 # End per object authorization bits.
 
 
+class CounterResourceAuthorization(Authorization):
+    def update_detail(self, object_list, bundle):
+        return True
+
+
 class CounterResource(ModelResource):
     count = fields.IntegerField('count', default=0, null=True)
 
     class Meta:
         queryset = Counter.objects.all()
+        authorization = CounterResourceAuthorization()
 
     def full_hydrate(self, bundle):
         bundle.times_hydrated = getattr(bundle, 'times_hydrated', 0) + 1
