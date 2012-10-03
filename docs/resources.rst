@@ -302,7 +302,7 @@ The Hydrate Cycle
 
 Tastypie uses a "hydrate" cycle to take serializated data from the client
 and turn it into something the data model can use. This is the reverse process
-from the ``dehydrate`` cycle. If fact, by default, Tastypie's serialized data
+from the ``dehydrate`` cycle. In fact, by default, Tastypie's serialized data
 should be "round-trip-able", meaning the data that comes out should be able to
 be fed back in & result in the same original data model. This usually means
 taking a dictionary of simple data types & turning it into a complex data
@@ -323,7 +323,7 @@ The cycle looks like:
 
 The goal of this cycle is to populate the ``bundle.obj`` data model with data
 suitable for saving/persistence. Again, with the exception of the ``alter_*``
-methods (as hooks to manipulate the overall structure), this cycle controls what
+methods (as hooks to manipulate the overall structure), this cycle controls
 how the data from the client is interpreted & placed on the data model.
 
 ``hydrate``
@@ -530,7 +530,7 @@ The inner ``Meta`` class allows for class-level configuration of how the
 ``limit``
 ---------
 
-  Controls what how many results the ``Resource`` will show at a time. Default
+  Controls how many results the ``Resource`` will show at a time. Default
   is either the ``API_LIMIT_PER_PAGE`` setting (if provided) or ``20`` if not
   specified.
 
@@ -646,13 +646,13 @@ The inner ``Meta`` class allows for class-level configuration of how the
   with a body containing all the data in a serialized form.
 
 ``collection_name``
-------------~~~~~~~
+-------------------
 
   Specifies the collection of objects returned in the ``GET`` list will be
   named. Default is ``objects``.
 
 ``detail_uri_name``
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
   Specifies the name for the regex group that matches on detail views. Defaults
   to ``pk``.
@@ -711,6 +711,17 @@ filter the queryset before processing a request::
                 orm_filters["pk__in"] = [i.pk for i in sqs]
 
             return orm_filters
+
+
+Using PUT/DELETE/PATCH In Unsupported Places
+============================================
+
+Some places, like in certain browsers or hosts, don't allow the
+``PUT/DELETE/PATCH`` methods. In these environments, you can simulate those
+kinds of requests by providing an ``X-HTTP-Method-Override`` header. For
+example, to send a ``PATCH`` request over ``POST``, you'd send a request like::
+
+    curl --dump-header - -H "Content-Type: application/json" -H "X-HTTP-Method-Override: PATCH" -X POST --data '{"title": "I Visited Grandma Today"}' http://localhost:8000/api/v1/entry/1/
 
 
 ``Resource`` Methods
@@ -997,6 +1008,16 @@ Allows for the sorting of objects being returned.
 ``ModelResource`` includes a full working version specific to Django's
 ``Models``.
 
+``get_bundle_detail_data``
+--------------------------
+
+.. method:: Resource.get_bundle_detail_data(self, bundle)
+
+Convenience method to return the ``detail_uri_name`` attribute off
+``bundle.obj``.
+
+Usually just accesses ``bundle.obj.pk`` by default.
+
 ``get_resource_uri``
 --------------------
 
@@ -1242,6 +1263,15 @@ Creates a new object based on the provided data.
 
 ``ModelResource`` includes a full working version specific to Django's
 ``Models``.
+
+``lookup_kwargs_with_identifiers``
+----------------------------------
+
+.. method:: Resource.lookup_kwargs_with_identifiers(self, bundle, kwargs)
+
+Kwargs here represent uri identifiers. Ex: /repos/<user_id>/<repo_name>/
+We need to turn those identifiers into Python objects for generating
+lookup parameters that can find them in the DB.
 
 ``obj_update``
 --------------
