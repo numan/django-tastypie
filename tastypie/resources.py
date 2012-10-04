@@ -7,9 +7,9 @@ from django.conf.urls.defaults import patterns, url
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned, ValidationError
 from django.core.urlresolvers import NoReverseMatch, reverse, resolve, Resolver404, get_script_prefix
 from django.db import transaction
-from django.db.models.sql.constants import QUERY_TERMS, LOOKUP_SEP
+from django.db.models.sql.constants import QUERY_TERMS
 from django.http import HttpResponse, HttpResponseNotFound, Http404
-from django.utils.cache import patch_cache_control
+from django.utils.cache import patch_cache_control, patch_vary_headers
 from tastypie.authentication import Authentication
 from tastypie.authorization import ReadOnlyAuthorization
 from tastypie.bundle import Bundle
@@ -40,6 +40,12 @@ try:
 except ImportError:
     def csrf_exempt(func):
         return func
+
+# Django 1.5 has moved this constant up one level.
+try:
+    from django.db.models.constants import LOOKUP_SEP
+except ImportError:
+    from django.db.models.sql.constants import LOOKUP_SEP
 
 
 class NOT_AVAILABLE:
@@ -195,6 +201,20 @@ class Resource(object):
                 callback = getattr(self, view)
                 response = callback(request, *args, **kwargs)
 
+                # Our response can vary based on a number of factors, use
+                # the cache class to determine what we should ``Vary`` on so
+                # caches won't return the wrong (cached) version.
+                varies = getattr(self._meta.cache, "varies", [])
+
+                if varies:
+                    patch_vary_headers(response, varies)
+
+                if self._meta.cache.cacheable(request, response):
+                    if self._meta.cache.cache_control():
+                        # If the request is cacheable and we have a
+                        # ``Cache-Control`` available then patch the header.
+                        patch_cache_control(response, **self._meta.cache.cache_control())
+
                 if request.is_ajax() and not response.has_header("Cache-Control"):
                     # IE excessively caches XMLHttpRequests, so we're disabling
                     # the browser cache here.
@@ -233,11 +253,13 @@ class Resource(object):
         import sys
         the_trace = '\n'.join(traceback.format_exception(*(sys.exc_info())))
         response_class = http.HttpApplicationError
+        response_code = 500
 
         NOT_FOUND_EXCEPTIONS = (NotFound, ObjectDoesNotExist, Http404)
 
         if isinstance(exception, NOT_FOUND_EXCEPTIONS):
             response_class = HttpResponseNotFound
+            response_code = 404
 
         if settings.DEBUG:
             data = {
@@ -250,11 +272,13 @@ class Resource(object):
 
         # When DEBUG is False, send an error message to the admins (unless it's
         # a 404, in which case we check the setting).
-        if not isinstance(exception, NOT_FOUND_EXCEPTIONS):
-            log = logging.getLogger('django.request.tastypie')
-            log.error('Internal Server Error: %s' % request.path, exc_info=sys.exc_info(), extra={'status_code': 500, 'request':request})
+        send_broken_links = getattr(settings, 'SEND_BROKEN_LINK_EMAILS', False)
 
-            if django.VERSION < (1, 3, 0) and getattr(settings, 'SEND_BROKEN_LINK_EMAILS', False):
+        if not response_code == 404 or send_broken_links:
+            log = logging.getLogger('django.request.tastypie')
+            log.error('Internal Server Error: %s' % request.path, exc_info=sys.exc_info(), extra={'status_code': response_code, 'request':request})
+
+            if django.VERSION < (1, 3, 0):
                 from django.core.mail import mail_admins
                 subject = 'Error (%s IP): %s' % ((request.META.get('REMOTE_ADDR') in settings.INTERNAL_IPS and 'internal' or 'EXTERNAL'), request.path)
                 try:
@@ -431,6 +455,10 @@ class Resource(object):
         throttling, method lookup) surrounding most CRUD interactions.
         """
         allowed_methods = getattr(self._meta, "%s_allowed_methods" % request_type, None)
+
+        if 'HTTP_X_HTTP_METHOD_OVERRIDE' in request.META:
+            request.method = request.META['HTTP_X_HTTP_METHOD_OVERRIDE']
+
         request_method = self.method_check(request, allowed=allowed_methods)
         method = getattr(self, "%s_%s" % (request_method, request_type), None)
 
@@ -698,6 +726,15 @@ class Resource(object):
         ``Models``.
         """
         return obj_list
+
+    def get_bundle_detail_data(self, bundle):
+        """
+        Convenience method to return the ``detail_uri_name`` attribute off
+        ``bundle.obj``.
+
+        Usually just accesses ``bundle.obj.pk`` by default.
+        """
+        return getattr(bundle.obj, self._meta.detail_uri_name)
 
     # URL-related methods.
 
@@ -1333,10 +1370,13 @@ class Resource(object):
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
 
         try:
-            obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
-            bundle.obj = obj
-            self.is_valid(bundle, request)
-            self.authorized_update_detail(self.get_object_list(request), bundle)
+            try:
+                obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
+                bundle.obj = obj
+                self.authorized_update_detail(self.get_object_list(request), bundle)
+            except (ObjectDoesNotExist, NotFound):
+                pass
+
             updated_bundle = self.obj_update(bundle, request=request, **self.remove_api_resource_names(kwargs))
 
             if not self._meta.always_return_data:
@@ -1539,7 +1579,11 @@ class Resource(object):
         # function is cribbed from put_detail.
         self.alter_deserialized_detail_data(request, original_bundle.data)
         self.authorized_update_detail(self.get_object_list(request), original_bundle)
-        return self.obj_update(original_bundle, request=request, pk=original_bundle.obj.pk)
+        kwargs = {
+            self._meta.detail_uri_name: self.get_bundle_detail_data(original_bundle),
+            'request': request,
+        }
+        return self.obj_update(original_bundle, **kwargs)
 
     def get_schema(self, request, **kwargs):
         """
@@ -1844,7 +1888,12 @@ class ModelResource(Resource):
 
         if hasattr(self._meta, 'queryset'):
             # Get the possible query terms from the current QuerySet.
-            query_terms = self._meta.queryset.query.query_terms.keys()
+            if hasattr(self._meta.queryset.query.query_terms, 'keys'):
+                # Django 1.4 & below compatibility.
+                query_terms = self._meta.queryset.query.query_terms.keys()
+            else:
+                # Django 1.5+.
+                query_terms = self._meta.queryset.query.query_terms
         else:
             query_terms = QUERY_TERMS.keys()
 
@@ -2043,26 +2092,52 @@ class ModelResource(Resource):
 
         return bundle
 
+    def lookup_kwargs_with_identifiers(self, bundle, kwargs):
+        """
+        Kwargs here represent uri identifiers Ex: /repos/<user_id>/<repo_name>/
+        We need to turn those identifiers into Python objects for generating
+        lookup parameters that can find them in the DB
+        """
+        lookup_kwargs = {}
+        bundle.obj = self.get_object_list(bundle.request).model()
+        # Override data values, we rely on uri identifiers
+        bundle.data.update(kwargs)
+        # We're going to manually hydrate, as opposed to calling
+        # ``full_hydrate``, to ensure we don't try to flesh out related
+        # resources & keep things speedy.
+        bundle = self.hydrate(bundle)
+
+        for identifier in kwargs:
+            if identifier == self._meta.detail_uri_name:
+                lookup_kwargs[identifier] = kwargs[identifier]
+                continue
+
+            field_object = self.fields[identifier]
+
+            # Skip readonly or related fields.
+            if field_object.readonly is True or getattr(field_object, 'is_related', False):
+                continue
+
+            # Check for an optional method to do further hydration.
+            method = getattr(self, "hydrate_%s" % identifier, None)
+
+            if method:
+                bundle = method(bundle)
+
+            if field_object.attribute:
+                value = field_object.hydrate(bundle)
+
+            lookup_kwargs[identifier] = value
+
+        return lookup_kwargs
+
     def obj_update(self, bundle, request=None, skip_errors=False, **kwargs):
         """
         A ORM-specific implementation of ``obj_update``.
         """
-        if not bundle.obj or not bundle.obj.pk:
-            # Attempt to hydrate data from kwargs before doing a lookup for the object.
-            # This step is needed so certain values (like datetime) will pass model validation.
+        if not bundle.obj or not self.get_bundle_detail_data(bundle):
             try:
-                bundle.obj = self.get_object_list(bundle.request).model()
-                bundle.data.update(kwargs)
-                bundle = self.full_hydrate(bundle)
-                lookup_kwargs = kwargs.copy()
-
-                for key in kwargs.keys():
-                    if key == 'pk':
-                        continue
-                    elif getattr(bundle.obj, key, NOT_AVAILABLE) is not NOT_AVAILABLE:
-                        lookup_kwargs[key] = getattr(bundle.obj, key)
-                    else:
-                        del lookup_kwargs[key]
+                lookup_kwargs = self.lookup_kwargs_with_identifiers(bundle, kwargs)
             except:
                 # if there is trouble hydrating the data, fall back to just
                 # using kwargs by itself (usually it only contains a "pk" key
@@ -2111,6 +2186,7 @@ class ModelResource(Resource):
 
         obj.delete()
 
+    @transaction.commit_on_success()
     def patch_list(self, request, **kwargs):
         """
         An ORM-specific implementation of ``patch_list``.
@@ -2118,8 +2194,7 @@ class ModelResource(Resource):
         Necessary because PATCH should be atomic (all-success or all-fail)
         and the only way to do this neatly is at the database level.
         """
-        with transaction.commit_on_success():
-            return super(ModelResource, self).patch_list(request, **kwargs)
+        return super(ModelResource, self).patch_list(request, **kwargs)
 
     def rollback(self, bundles):
         """
@@ -2129,14 +2204,12 @@ class ModelResource(Resource):
         bundles.
         """
         for bundle in bundles:
-            if bundle.obj and getattr(bundle.obj, 'pk', None):
+            if bundle.obj and self.get_bundle_detail_data(bundle):
                 bundle.obj.delete()
 
     def save(self, bundle):
         # Check if they're authorized.
-        if bundle.obj.pk:
-            self.authorized_update_detail(self.get_object_list(bundle.request), bundle)
-        else:
+        if not bundle.obj.pk:
             self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
 
         self.is_valid(bundle, bundle.request)
@@ -2183,6 +2256,9 @@ class ModelResource(Resource):
             if field_object.readonly:
                 continue
 
+            if field_object.blank and not bundle.data.has_key(field_name):
+                continue
+
             if hasattr(bundle.data, "has_key") and not bundle.data.has_key(field_name):
                 continue
 
@@ -2206,8 +2282,9 @@ class ModelResource(Resource):
                     continue
 
                 if field_object.related_name:
-                    if not bundle.obj.pk:
+                    if not self.get_bundle_detail_data(bundle):
                         bundle.obj.save()
+
                     setattr(related_obj, field_object.related_name, bundle.obj)
 
                 related_resource = field_object.get_related_resource(related_obj)
@@ -2240,7 +2317,15 @@ class ModelResource(Resource):
                 continue
 
             # Get the manager.
-            related_mngr = getattr(bundle.obj, field_object.attribute)
+            related_mngr = None
+
+            if isinstance(field_object.attribute, basestring):
+                related_mngr = getattr(bundle.obj, field_object.attribute)
+            elif callable(field_object.attribute):
+                related_mngr = field_object.attribute(bundle)
+
+            if not related_mngr:
+                continue
 
             if hasattr(related_mngr, 'clear'):
                 # FIXME: Dupe the original bundle, copy in the new object &
