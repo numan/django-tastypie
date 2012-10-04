@@ -2149,7 +2149,7 @@ class ModelResource(Resource):
             except ObjectDoesNotExist:
                 raise NotFound("A model instance matching the provided arguments could not be found.")
 
-        bundle = self.medium_hydrate(bundle)
+        bundle = self.full_hydrate(bundle)
         return self.save(bundle)
 
     def obj_delete_list(self, request=None, **kwargs):
