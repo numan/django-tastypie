@@ -7,6 +7,11 @@ from tastypie.authorization import Authorization
 from basic.models import Note, AnnotatedNote, SlugBasedNote
 
 
+class SlugBasedNoteResourceAuthorization(Authorization):
+    def update_detail(self, object_list, bundle):
+        return True
+
+
 class UserResource(ModelResource):
     class Meta:
         resource_name = 'users'
@@ -61,6 +66,7 @@ class SlugBasedNoteResource(ModelResource):
         queryset = SlugBasedNote.objects.all()
         resource_name = 'slugbased'
         detail_uri_name = 'slug'
+        authorization = SlugBasedNoteResourceAuthorization()
 
 
 class SessionUserResource(ModelResource):

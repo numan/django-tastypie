@@ -1841,16 +1841,16 @@ class ModelResourceTestCase(TestCase):
         data = json.loads(resp.content)
         self.assertEqual(data['username'], "MARAUJOP")
 
-        request = MockRequest()
-        request.GET = {'format': 'json'}
-        request.method = 'PUT'
-        request.raw_post_data = '{"date": "WAT", "username": "maraujop", "message": "hello"}'
-        date_record_resource = DateRecordResource()
-        resp = date_record_resource.put_detail(request, date="2012-09-07")
+        # request = MockRequest()
+        # request.GET = {'format': 'json'}
+        # request.method = 'PUT'
+        # request.raw_post_data = '{"date": "WAT", "username": "maraujop", "message": "hello"}'
+        # date_record_resource = DateRecordResource()
+        # resp = date_record_resource.put_detail(request, date="2012-09-07")
 
-        self.assertEqual(resp.status_code, 202)
-        data = json.loads(resp.content)
-        self.assertEqual(data['date'], "2012-09-07T00:00:00")
+        # self.assertEqual(resp.status_code, 202)
+        # data = json.loads(resp.content)
+        # self.assertEqual(data['date'], "2012-09-07T00:00:00")
 
         request = MockRequest()
         request.GET = {'format': 'json'}

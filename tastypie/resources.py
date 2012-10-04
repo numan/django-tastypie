@@ -1359,10 +1359,13 @@ class Resource(object):
         bundle = self.build_bundle(data=dict_strip_unicode_keys(deserialized), request=request)
 
         try:
-            obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
-            bundle.obj = obj
-            self.is_valid(bundle, request)
-            self.authorized_update_detail(self.get_object_list(request), bundle)
+            try:
+                obj = self.cached_obj_get(request=request, **self.remove_api_resource_names(kwargs))
+                bundle.obj = obj
+                self.authorized_update_detail(self.get_object_list(request), bundle)
+            except (ObjectDoesNotExist, NotFound):
+                pass
+
             updated_bundle = self.obj_update(bundle, request=request, **self.remove_api_resource_names(kwargs))
 
             if not self._meta.always_return_data:
@@ -2152,9 +2155,7 @@ class ModelResource(Resource):
 
     def save(self, bundle):
         # Check if they're authorized.
-        if bundle.obj.pk:
-            self.authorized_update_detail(self.get_object_list(bundle.request), bundle)
-        else:
+        if not bundle.obj.pk:
             self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
 
         self.is_valid(bundle, bundle.request)

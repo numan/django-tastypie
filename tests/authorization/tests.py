@@ -71,7 +71,7 @@ class AuthTestCase(TestCase):
         resp, content = self.parse_response(
             self.client.put(
                 detail_url,
-                data=json.dumps({'content': 'New content'}),
+                data=json.dumps({'content': 'New content', 'user': '/api/v1/user/1/'}),
                 **headers),
             status_code=401)
         resp, content = self.parse_response(
