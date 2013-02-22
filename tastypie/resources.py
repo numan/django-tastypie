@@ -2145,8 +2145,8 @@ class ModelResource(Resource):
         for key, value in kwargs.items():
             setattr(bundle.obj, key, value)
 
-        self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
         bundle = self.full_hydrate(bundle)
+        self.authorized_create_detail(self.get_object_list(bundle.request), bundle)
         return self.save(bundle)
 
     def lookup_kwargs_with_identifiers(self, bundle, kwargs):
