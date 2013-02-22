@@ -2071,7 +2071,7 @@ class BaseModelResource(Resource):
         except ValueError:
             raise NotFound("Invalid resource lookup data provided (mismatched type).")
 
-    def obj_create(self, bundle, **kwargs):
+    def obj_create(self, bundle, request=None, **kwargs):
         """
         A ORM-specific implementation of ``obj_create``.
         """
@@ -2122,7 +2122,7 @@ class BaseModelResource(Resource):
 
         return lookup_kwargs
 
-    def obj_update(self, bundle, skip_errors=False, **kwargs):
+    def obj_update(self, bundle, request=None, skip_errors=False, **kwargs):
         """
         A ORM-specific implementation of ``obj_update``.
         """
@@ -2171,7 +2171,7 @@ class BaseModelResource(Resource):
             for authed_obj in deletable_objects:
                 authed_obj.delete()
 
-    def obj_delete(self, bundle, **kwargs):
+    def obj_delete(self, bundle, request=None, **kwargs):
         """
         A ORM-specific implementation of ``obj_delete``.
 
