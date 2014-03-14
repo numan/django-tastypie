@@ -234,12 +234,20 @@ class Serializer(object):
         This brings complex Python data structures down to native types of the
         serialization format(s).
         """
-        if type(data) in (six.integer_types, float, bool):
+        if data is None:
+            return None
+        if type(data) in six.integer_types or type(data) in (float, bool):
             return data
         if isinstance(data, dict):
             return dict((key, self.to_simple(val, options)) for (key, val) in data.iteritems())
         if isinstance(data, basestring):
             return force_text(data)
+        if isinstance(data, datetime.datetime):
+            return self.format_datetime(data)
+        if isinstance(data, datetime.date):
+            return self.format_date(data)
+        if isinstance(data, datetime.time):
+            return self.format_time(data)
         if isinstance(data, (list, tuple)):
             return [self.to_simple(item, options) for item in data]
         if isinstance(data, Bundle):
@@ -257,13 +265,8 @@ class Serializer(object):
                 return [self.to_simple(val, options) for val in data.value]
         elif value is not None:
             return self.to_simple(data.value, options)
-        if isinstance(data, datetime.datetime):
-            return self.format_datetime(data)
-        if isinstance(data, datetime.date):
-            return self.format_date(data)
-        if isinstance(data, datetime.time):
-            return self.format_time(data)
-        return None
+
+        return force_text(data)
 
 
     def to_etree(self, data, options=None, name=None, depth=0):
