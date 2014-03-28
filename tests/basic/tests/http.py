@@ -32,7 +32,7 @@ class HTTPTestCase(TestServerTestCase):
         connection.close()
         data = response.read().decode('utf-8')
         self.assertEqual(response.status, 200)
-        self.assertEqual(data, '{"cached_users": {"list_endpoint": "/api/v1/cached_users/", "schema": "/api/v1/cached_users/schema/"}, "notes": {"list_endpoint": "/api/v1/notes/", "schema": "/api/v1/notes/schema/"}, "private_cached_users": {"list_endpoint": "/api/v1/private_cached_users/", "schema": "/api/v1/private_cached_users/schema/"}, "public_cached_users": {"list_endpoint": "/api/v1/public_cached_users/", "schema": "/api/v1/public_cached_users/schema/"}, "users": {"list_endpoint": "/api/v1/users/", "schema": "/api/v1/users/schema/"}}')
+        self.assertEqual(data, u'{"cached_users": {"list_endpoint": "/api/v1/cached_users/", "schema": "/api/v1/cached_users/schema/"}, "notes": {"list_endpoint": "/api/v1/notes/", "schema": "/api/v1/notes/schema/"}, "private_cached_users": {"list_endpoint": "/api/v1/private_cached_users/", "schema": "/api/v1/private_cached_users/schema/"}, "public_cached_users": {"list_endpoint": "/api/v1/public_cached_users/", "schema": "/api/v1/public_cached_users/schema/"}, "usernotes": {"list_endpoint": "/api/v1/usernotes/", "schema": "/api/v1/usernotes/schema/"}, "users": {"list_endpoint": "/api/v1/users/", "schema": "/api/v1/users/schema/"}}')
 
     def test_get_apis_invalid_accept(self):
         connection = self.get_connection()
@@ -60,7 +60,7 @@ class HTTPTestCase(TestServerTestCase):
         connection.close()
         data = response.read().decode('utf-8')
         self.assertEqual(response.status, 200)
-        self.assertEqual(data, '<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<response><cached_users type="hash"><list_endpoint>/api/v1/cached_users/</list_endpoint><schema>/api/v1/cached_users/schema/</schema></cached_users><notes type="hash"><list_endpoint>/api/v1/notes/</list_endpoint><schema>/api/v1/notes/schema/</schema></notes><private_cached_users type="hash"><list_endpoint>/api/v1/private_cached_users/</list_endpoint><schema>/api/v1/private_cached_users/schema/</schema></private_cached_users><public_cached_users type="hash"><list_endpoint>/api/v1/public_cached_users/</list_endpoint><schema>/api/v1/public_cached_users/schema/</schema></public_cached_users><users type="hash"><list_endpoint>/api/v1/users/</list_endpoint><schema>/api/v1/users/schema/</schema></users></response>')
+        self.assertEqual(data, u'<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<response><cached_users type="hash"><list_endpoint>/api/v1/cached_users/</list_endpoint><schema>/api/v1/cached_users/schema/</schema></cached_users><notes type="hash"><list_endpoint>/api/v1/notes/</list_endpoint><schema>/api/v1/notes/schema/</schema></notes><private_cached_users type="hash"><list_endpoint>/api/v1/private_cached_users/</list_endpoint><schema>/api/v1/private_cached_users/schema/</schema></private_cached_users><public_cached_users type="hash"><list_endpoint>/api/v1/public_cached_users/</list_endpoint><schema>/api/v1/public_cached_users/schema/</schema></public_cached_users><usernotes type="hash"><list_endpoint>/api/v1/usernotes/</list_endpoint><schema>/api/v1/usernotes/schema/</schema></usernotes><users type="hash"><list_endpoint>/api/v1/users/</list_endpoint><schema>/api/v1/users/schema/</schema></users></response>')
 
     def test_get_list(self):
         connection = self.get_connection()
@@ -77,6 +77,20 @@ class HTTPTestCase(TestServerTestCase):
         connection.close()
         self.assertEqual(response.status, 200)
         self.assertEqual(response.read().decode('utf-8'), '{"meta": {"limit": 20, "next": null, "offset": 0, "previous": null, "total_count": 2}, "objects": [{"id": 1, "is_active": true, "title": "First Post!"}, {"id": 2, "is_active": true, "title": "Another Post"}]}')
+
+    def test_get_list_with_fields_and_full_sub_resource(self):
+        connection = self.get_connection()
+        connection.request('GET', '/api/v1/usernotes/?fields=is_active,id,title,user', headers={'Accept': 'application/json'})
+        response = connection.getresponse()
+        connection.close()
+        self.assertEqual(response.status, 200)
+        response_obj = json.loads(response.read().decode('utf-8'))
+        response_obj['objects'][0]['user']['last_login'] = ""
+        response_obj['objects'][1]['user']['last_login'] = ""
+        response_obj['objects'][0]['user']['date_joined'] = ""
+        response_obj['objects'][1]['user']['date_joined'] = ""
+
+        self.assertEqual(response_obj, {u'meta': {u'limit': 20, u'offset': 0, u'total_count': 2, u'next': None, u'previous': None}, u'objects': [{u'is_active': True, u'title': u'First Post!', u'user': {u'last_login': '', u'id': 1, u'password': u'this_is_not_a_valid_password_string', u'date_joined': '', u'resource_uri': u'/api/v1/users/1/', u'is_superuser': False, u'first_name': u'', u'username': u'johndoe', u'is_active': True, u'email': u'john@doe.com', u'last_name': u'', u'is_staff': False}, u'id': 1}, {u'is_active': True, u'title': u'Another Post', u'user': {u'last_login': '', u'id': 1, u'password': u'this_is_not_a_valid_password_string', u'date_joined': '', u'resource_uri': u'/api/v1/users/1/', u'is_superuser': False, u'first_name': u'', u'username': u'johndoe', u'is_active': True, u'email': u'john@doe.com', u'last_name': u'', u'is_staff': False}, u'id': 2}]})
 
     def test_post_object(self):
         connection = self.get_connection()

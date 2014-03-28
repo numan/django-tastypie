@@ -47,6 +47,15 @@ class NoteResource(ModelResource):
         authorization = Authorization()
 
 
+class NoteFullUserResource(ModelResource):
+    user = fields.ForeignKey(UserResource, 'user', full=True)
+
+    class Meta:
+        resource_name = 'usernotes'
+        queryset = Note.objects.all()
+        authorization = Authorization()
+
+
 class BustedResource(ModelResource):
     class Meta:
         queryset = AnnotatedNote.objects.all()
