@@ -827,7 +827,7 @@ class Resource(six.with_metaclass(DeclarativeMetaclass)):
 
     # Data preparation.
 
-    def determine_fields(self, bundle):
+    def determine_fields(self, bundle, sub_resource):
         '''
             Returns the fields that needs to be deserialized.
             This is useful if we want client to control what fields they are
@@ -840,19 +840,19 @@ class Resource(six.with_metaclass(DeclarativeMetaclass)):
 
         # All fields that we have registered for this resource.
         resource_fields = self.fields.keys()
-        if not required_fields:
+        if sub_resource or not required_fields:
             return resource_fields
 
         # Rerturn the intersection of fields requested and all the resource_fields.
         return set(required_fields.split(",")) & set(resource_fields)
 
-    def full_dehydrate(self, bundle, for_list=False):
+    def full_dehydrate(self, bundle, for_list=False, sub_resource=False):
         """
         Given a bundle with an object instance, extract the information from it
         to populate the resource.
         """
         # Dehydrate each field.
-        fields = self.determine_fields(bundle)
+        fields = self.determine_fields(bundle, sub_resource)
         use_in = ['all', 'list' if for_list else 'detail']
         for field_name in fields:
             # If it's not for use in this mode, skip

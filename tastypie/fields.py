@@ -567,7 +567,7 @@ class RelatedField(ApiField):
                 request=bundle.request,
                 objects_saved=bundle.objects_saved
             )
-            return related_resource.full_dehydrate(bundle)
+            return related_resource.full_dehydrate(bundle, sub_resource=True)
 
     def resource_from_uri(self, fk_resource, uri, request=None, related_obj=None, related_name=None):
         """
